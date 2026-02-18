@@ -1,0 +1,29 @@
+name: 'Releaser Publish'
+description: 'Upload release assets to Releaser'
+inputs:
+  api-key:
+    description: 'Releaser API key (starts with rlsr_)'
+    required: true
+  url:
+    description: 'Override API URL (for testing only)'
+    required: false
+    default: 'https://api.releaser.tech'
+  tenant:
+    description: 'Organization slug'
+    required: true
+  app:
+    description: 'App slug'
+    required: true
+  tag:
+    description: 'Version tag (e.g. v1.0.0)'
+    required: true
+  channel:
+    description: 'Release channel (stable, beta, alpha)'
+    required: false
+    default: 'stable'
+  files:
+    description: 'Glob patterns for files to upload (one per line)'
+    required: true
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
