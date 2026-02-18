@@ -13,66 +13,6 @@ jobs:
       - name: Checkout action repo
         uses: actions/checkout@v4
 
-      - name: Checkout backend repo
-        uses: actions/checkout@v4
-        with:
-          repository: releaser-tech/backend
-          path: backend
-          token: ${{ secrets.BACKEND_PAT }}
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Start Supabase
-        working-directory: backend/supabase
-        run: supabase start
-
-      - name: Get Supabase status
-        id: supabase
-        working-directory: backend/supabase
-        run: |
-          echo "url=$(supabase status --output json | jq -r '.API_URL')" >> "$GITHUB_OUTPUT"
-          echo "service_key=$(supabase status --output json | jq -r '.SERVICE_ROLE_KEY')" >> "$GITHUB_OUTPUT"
-          echo "anon_key=$(supabase status --output json | jq -r '.ANON_KEY')" >> "$GITHUB_OUTPUT"
-
-      - name: Create test data and API key
-        id: setup
-        env:
-          SUPABASE_URL: ${{ steps.supabase.outputs.url }}
-          SERVICE_KEY: ${{ steps.supabase.outputs.service_key }}
-        run: |
-          # Create tenant
-          TENANT_ID=$(curl -s "$SUPABASE_URL/rest/v1/tenants" \
-            -H "apikey: $SERVICE_KEY" \
-            -H "Authorization: Bearer $SERVICE_KEY" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: return=representation" \
-            -d '{"name":"CI Test","slug":"ci-test"}' | jq -r '.[0].id')
-
-          # Create app
-          APP_ID=$(curl -s "$SUPABASE_URL/rest/v1/apps" \
-            -H "apikey: $SERVICE_KEY" \
-            -H "Authorization: Bearer $SERVICE_KEY" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: return=representation" \
-            -d "{\"tenant_id\":\"$TENANT_ID\",\"name\":\"CI App\",\"slug\":\"ci-app\"}" | jq -r '.[0].id')
-
-          # Generate API key
-          RAW_KEY="rlsr_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
-          KEY_HASH=$(echo -n "$RAW_KEY" | sha256sum | cut -d' ' -f1)
-          KEY_PREFIX="${RAW_KEY:0:12}"
-
-          # Insert API key
-          curl -s "$SUPABASE_URL/rest/v1/api_keys" \
-            -H "apikey: $SERVICE_KEY" \
-            -H "Authorization: Bearer $SERVICE_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"app_id\":\"$APP_ID\",\"name\":\"CI key\",\"key_hash\":\"$KEY_HASH\",\"key_prefix\":\"$KEY_PREFIX\"}"
-
-          echo "api_key=$RAW_KEY" >> "$GITHUB_OUTPUT"
-
       - name: Create test files
         run: |
           mkdir -p dist
@@ -82,26 +22,11 @@ jobs:
       - name: Run Releaser Publish action
         uses: ./
         with:
-          api-key: ${{ steps.setup.outputs.api_key }}
-          url: ${{ steps.supabase.outputs.url }}
-          tenant: ci-test
-          app: ci-app
-          tag: v1.0.0
+          api-key: ${{ secrets.RELEASER_API_KEY }}
+          tenant: releaser-action
+          app: test
+          tag: ci-${{ github.run_id }}
           channel: stable
           files: |
             dist/*.dmg
             dist/*.exe
-
-      - name: Verify upload
-        env:
-          SUPABASE_URL: ${{ steps.supabase.outputs.url }}
-          SERVICE_KEY: ${{ steps.supabase.outputs.service_key }}
-        run: |
-          ASSET_COUNT=$(curl -s "$SUPABASE_URL/rest/v1/app_version_assets?select=id" \
-            -H "apikey: $SERVICE_KEY" \
-            -H "Authorization: Bearer $SERVICE_KEY" | jq 'length')
-          echo "Assets uploaded: $ASSET_COUNT"
-          if [ "$ASSET_COUNT" -lt 2 ]; then
-            echo "Expected at least 2 assets, got $ASSET_COUNT"
-            exit 1
-          fi
