@@ -59122,6 +59122,7 @@ async function run() {
         const app = core.getInput("app", { required: true });
         const tag = core.getInput("tag", { required: true });
         const channel = core.getInput("channel") || "stable";
+        const changelog = core.getInput("changelog") || "";
         const filesInput = core.getInput("files", { required: true });
         if (!apiKey.startsWith("rlsr_")) {
             core.setFailed("API key must start with 'rlsr_'");
@@ -59159,6 +59160,8 @@ async function run() {
                 form.append("platform", platform);
             if (arch)
                 form.append("arch", arch);
+            if (changelog)
+                form.append("changelog", changelog);
             const response = await fetch(uploadUrl, {
                 method: "POST",
                 headers: {

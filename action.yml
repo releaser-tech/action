@@ -21,6 +21,9 @@ inputs:
     description: 'Release channel (stable, beta, alpha)'
     required: false
     default: 'stable'
+  changelog:
+    description: 'Release notes / changelog (markdown)'
+    required: false
   files:
     description: 'Glob patterns for files to upload (one per line)'
     required: true
